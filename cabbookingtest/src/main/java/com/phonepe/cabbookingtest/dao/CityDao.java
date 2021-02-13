@@ -25,4 +25,8 @@ public class CityDao {
 	public boolean isCityOnboarded(City city) {
 		return cities.contains(city);
 	}
+	public boolean isCityOnboarded(String location) {
+		City city = new City(location);
+		return cities.contains(city);
+	}
 }

@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import com.phonepe.cabbookingtest.exception.IllegalCabStatusException;
 import com.phonepe.cabbookingtest.exception.NoCabAvailbleException;
-import com.phonepe.cabbookingtest.servcie.CityOnbaoardingService;
 import com.phonepe.cabbookingtest.vo.Cab;
 import com.phonepe.cabbookingtest.vo.CabStatus;
 import com.phonepe.cabbookingtest.vo.City;
@@ -28,12 +27,12 @@ public class CabStatusDao {
 	private static Set<CabStatus> cabsInNotSupportedLocation = new HashSet<>();
 	private static PriorityQueue<CabStatus> cabStatusPQ = new PriorityQueue<>(
 			(o1, o2) -> o1.getStatusTime().compareTo(o2.getStatusTime()));
-
-	private CityOnbaoardingService cityOnBoardingService;
-		
-	public CabStatusDao(CityOnbaoardingService cityOnBoardingService) {
+	
+	private CityDao cityDao;
+	
+	public CabStatusDao(CityDao cityDao) {
 		super();
-		this.cityOnBoardingService = cityOnBoardingService;
+		this.cityDao = cityDao;
 	}
 
 	public void addCabStatus(CabStatus cabStatus) {
@@ -96,7 +95,7 @@ public class CabStatusDao {
 			cabStatus.setLocation(currentLocation);
 			if (cs.isPresent()) {
 				
-				if (cityOnBoardingService.isCityOnBorded(currentLocation)) {
+				if (cityDao.isCityOnboarded(currentLocation)) {
 					if (cs.get().getStatus().equals(Status.IDEL) && cabsInNotSupportedLocation.contains(cabStatus)) {
 						cabsInNotSupportedLocation.remove(cabStatus);
 						cabStatus.setLocation(currentLocation);
@@ -145,7 +144,7 @@ public class CabStatusDao {
 			if (cs.isPresent() && cs.get().getStatus().equals(Status.ON_TRIP)) {				
 				cabStatus.setStatus(Status.IDEL);
 				cabStatus.setStatusTime(LocalDateTime.now());
-				if (!cityOnBoardingService.isCityOnBorded(currentLocation)) {
+				if (!cityDao.isCityOnboarded(currentLocation)) {
 					
 					message.append("has completed its trip in unsupported region. To appear in waiting list cab needs to update its location once in supported region.");
 					logger.info(message.toString());
@@ -162,5 +161,16 @@ public class CabStatusDao {
 			}
 		});
 		return message.toString();
+	}
+	
+	public void handleCityOnboarding(City city) {
+
+		Set<CabStatus> csSet = cabsInNotSupportedLocation.stream().filter(p -> p.getLocation().equals(city)).collect(Collectors.toSet());
+		csSet.forEach(cabStatus ->{
+			logger.info("{} added to waiting list", cabStatus.getCab());
+			cabsInNotSupportedLocation.remove(cabStatus);
+			cabStatusPQ.add(cabStatus);	
+		});
+			
 	}
 }
